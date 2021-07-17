@@ -31,7 +31,7 @@ To get started, make sure you have [Docker installed](https://docs.docker.com/) 
 3. Inside the folder `docker/nginx/conf.d` and Generate your own `app.conf` with the next command:
 
    ```sh
-   cp app-pingpong.conf.example app.conf
+   cp app.conf.example app.conf
    ```
 
 4. You need **Create** or **Put** your laravel project in the folder source; 
