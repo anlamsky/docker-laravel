@@ -1,0 +1,111 @@
+version: '3.8'
+services:
+
+  #PHP Service
+  php:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+    image: my-app.local/app
+    container_name: app
+    restart: always
+    tty: true
+    environment:
+      SERVICE_NAME: app
+      SERVICE_TAGS: dev
+    working_dir: /var/www/myapp
+    volumes:
+      - ./source:/var/www/myapp
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/php.ini
+      - ./docker/php/xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini
+    networks:
+      - app-network
+
+  #Nginx Service
+  webserver:
+    build:
+      context: .
+      dockerfile: ./docker/nginx/Dockerfile
+    container_name: webserver
+    restart: always
+    tty: true
+    ports:
+      - "80:80"
+    volumes:
+      - ./source:/var/www/myapp
+      - ./docker/nginx/conf.d/:/etc/nginx/conf.d/
+      - ./docker/nginx/logs:/var/logs/nginx
+    networks:
+      - app-network
+
+  #MySQL Service
+  mysql:
+    image: mysql:5.7.22
+    container_name: db_myapp
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME} 
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: root
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    volumes:
+      - dbdata:/var/lib/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/my.cnf
+    networks:
+      - app-network
+
+  #Composer Service    
+  composer:
+    build:
+      context: .
+      dockerfile: ./docker/php/composer/Dockerfile
+    container_name: composer
+    volumes:
+      - ./source:/var/www/myapp
+    working_dir: /var/www/myapp
+    depends_on:
+      - app
+    networks:
+      - app-network
+    entrypoint: ['composer', '--ignore-platform-reqs']
+  
+  #npm service  
+  npm:
+    image: node:15.0.1
+    container_name: npm
+    volumes:
+      - ./source:/var/www/myapp
+    working_dir: /var/www/myapp
+    depends_on:
+      - app
+    entrypoint: ['npm']
+  
+  #artisan service  
+  artisan:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+    container_name: artisan
+    volumes:
+      - ./source:/var/www/myapp:delegated
+    depends_on:
+      - mysql
+    working_dir: /var/www/myapp
+    entrypoint: ['php', '/var/www/myapp/artisan']
+    networks:
+      - app-network  
+
+#Docker Networks
+networks:
+  app-network:
+    driver: bridge
+#Volumes
+volumes:
+  dbdata:
+    driver: local
